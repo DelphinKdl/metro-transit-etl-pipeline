@@ -8,15 +8,15 @@ Skip automatically when the database is unreachable.
 """
 
 import os
+from datetime import UTC, datetime
+
 import pytest
-from datetime import datetime, timezone
-
 from sqlalchemy import create_engine, text
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 def _db_url() -> str:
     return os.getenv(
@@ -52,7 +52,7 @@ def engine():
 
 @pytest.fixture(scope="module")
 def run_id():
-    return datetime.now(timezone.utc).strftime("test_%Y%m%d_%H%M%S")
+    return datetime.now(UTC).strftime("test_%Y%m%d_%H%M%S")
 
 
 # ---------------------------------------------------------------------------
@@ -68,7 +68,7 @@ SAMPLE_RAW = [
         "station_name": "Metro Center",
         "minutes_to_arrival": "3",
         "car_count": "8",
-        "extracted_at": datetime.now(timezone.utc).isoformat(),
+        "extracted_at": datetime.now(UTC).isoformat(),
     },
     {
         "station_code": "A01",
@@ -78,7 +78,7 @@ SAMPLE_RAW = [
         "station_name": "Metro Center",
         "minutes_to_arrival": "7",
         "car_count": "6",
-        "extracted_at": datetime.now(timezone.utc).isoformat(),
+        "extracted_at": datetime.now(UTC).isoformat(),
     },
     {
         "station_code": "C01",
@@ -88,7 +88,7 @@ SAMPLE_RAW = [
         "station_name": "Metro Center",
         "minutes_to_arrival": "5",
         "car_count": "8",
-        "extracted_at": datetime.now(timezone.utc).isoformat(),
+        "extracted_at": datetime.now(UTC).isoformat(),
     },
     # Invalid record – should be dropped by transformer
     {
@@ -99,7 +99,7 @@ SAMPLE_RAW = [
         "station_name": "",
         "minutes_to_arrival": "",
         "car_count": "",
-        "extracted_at": datetime.now(timezone.utc).isoformat(),
+        "extracted_at": datetime.now(UTC).isoformat(),
     },
 ]
 
@@ -139,8 +139,8 @@ class TestEndToEnd:
 
     def test_03_silver_insert(self, engine, run_id):
         """Cleaned predictions persist to silver.cleaned_predictions."""
-        from src.core.transformer import transform_predictions
         from src.core.loader import DatabaseLoader
+        from src.core.transformer import transform_predictions
 
         cleaned = transform_predictions(SAMPLE_RAW)
         loader = DatabaseLoader(str(engine.url))
@@ -156,11 +156,11 @@ class TestEndToEnd:
 
     def test_04_quality_checks(self):
         """Quality checks pass on valid aggregated data."""
-        from src.core.transformer import (
-            transform_predictions,
-            aggregate_station_metrics,
-        )
         from src.core.quality_checks import run_quality_checks
+        from src.core.transformer import (
+            aggregate_station_metrics,
+            transform_predictions,
+        )
 
         cleaned = transform_predictions(SAMPLE_RAW)
         aggregates = aggregate_station_metrics(cleaned)
@@ -171,12 +171,12 @@ class TestEndToEnd:
 
     def test_05_gold_insert(self, engine, run_id):
         """Aggregated metrics land in gold.station_wait_times."""
+        from src.core.loader import DatabaseLoader
         from src.core.transformer import (
-            transform_predictions,
             aggregate_station_metrics,
             enrich_with_metadata,
+            transform_predictions,
         )
-        from src.core.loader import DatabaseLoader
 
         cleaned = transform_predictions(SAMPLE_RAW)
         aggregates = aggregate_station_metrics(cleaned)
@@ -223,9 +223,9 @@ class TestEndToEnd:
     def test_07_data_lineage(self):
         """Enriched aggregates carry run_id and pipeline_version."""
         from src.core.transformer import (
-            transform_predictions,
             aggregate_station_metrics,
             enrich_with_metadata,
+            transform_predictions,
         )
 
         cleaned = transform_predictions(SAMPLE_RAW)

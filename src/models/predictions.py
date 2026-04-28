@@ -6,14 +6,13 @@ Defines the core data structures used throughout the pipeline.
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
 
 
 @dataclass
 class TrainPrediction:
     """
     Represents a single train arrival prediction.
-    
+
     Attributes:
         car_count: Number of cars (6 or 8), None if unknown
         destination: Human-readable destination name
@@ -25,13 +24,14 @@ class TrainPrediction:
         raw_minutes: Original string from API (e.g., "ARR", "BRD", "5")
         extracted_at: UTC timestamp when data was fetched
     """
-    car_count: Optional[int]
+
+    car_count: int | None
     destination: str
     destination_code: str
     line: str
     station_code: str
     station_name: str
-    minutes_to_arrival: Optional[int]
+    minutes_to_arrival: int | None
     raw_minutes: str
     extracted_at: datetime
 
@@ -53,11 +53,11 @@ class TrainPrediction:
     def from_dict(cls, data: dict) -> "TrainPrediction":
         """Create from dictionary."""
         from datetime import datetime
-        
+
         extracted_at = data.get("extracted_at")
         if isinstance(extracted_at, str):
             extracted_at = datetime.fromisoformat(extracted_at)
-        
+
         return cls(
             car_count=data.get("car_count"),
             destination=data.get("destination", ""),

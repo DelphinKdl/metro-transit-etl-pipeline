@@ -6,19 +6,16 @@ Uses structlog for JSON-formatted, context-rich logging.
 
 import logging
 import sys
-from typing import Optional
 
 import structlog
 
 
 def configure_logging(
-    level: str = "INFO",
-    json_format: bool = True,
-    service_name: str = "wmata-etl"
+    level: str = "INFO", json_format: bool = True, service_name: str = "wmata-etl"
 ) -> None:
     """
     Configure structured logging for the application.
-    
+
     Args:
         level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         json_format: If True, output JSON logs. If False, output human-readable.
@@ -49,9 +46,7 @@ def configure_logging(
 
     structlog.configure(
         processors=processors,
-        wrapper_class=structlog.make_filtering_bound_logger(
-            getattr(logging, level.upper())
-        ),
+        wrapper_class=structlog.make_filtering_bound_logger(getattr(logging, level.upper())),
         context_class=dict,
         logger_factory=structlog.PrintLoggerFactory(),
         cache_logger_on_first_use=True,
@@ -62,13 +57,13 @@ def configure_logging(
     structlog.contextvars.bind_contextvars(service=service_name)
 
 
-def get_logger(name: Optional[str] = None) -> structlog.BoundLogger:
+def get_logger(name: str | None = None) -> structlog.BoundLogger:
     """
     Get a structured logger instance.
-    
+
     Args:
         name: Optional logger name for context.
-        
+
     Returns:
         Configured structlog logger.
     """

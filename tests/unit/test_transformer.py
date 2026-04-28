@@ -1,12 +1,11 @@
 """Unit tests for transformer module."""
 
-import pytest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from src.core.transformer import (
-    transform_predictions,
     aggregate_station_metrics,
     get_line_name,
+    transform_predictions,
 )
 
 
@@ -20,14 +19,35 @@ class TestTransformPredictions:
 
     def test_removes_rows_without_station_code(self):
         """Rows without station_code should be removed."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         raw = [
-            {"station_code": "A01", "line": "RD", "minutes_to_arrival": 5, 
-             "car_count": 8, "destination_code": "B01", "extracted_at": now, "station_name": "Test"},
-            {"station_code": "", "line": "RD", "minutes_to_arrival": 3,
-             "car_count": 8, "destination_code": "B01", "extracted_at": now, "station_name": "Test"},
-            {"station_code": None, "line": "RD", "minutes_to_arrival": 2,
-             "car_count": 8, "destination_code": "B01", "extracted_at": now, "station_name": "Test"},
+            {
+                "station_code": "A01",
+                "line": "RD",
+                "minutes_to_arrival": 5,
+                "car_count": 8,
+                "destination_code": "B01",
+                "extracted_at": now,
+                "station_name": "Test",
+            },
+            {
+                "station_code": "",
+                "line": "RD",
+                "minutes_to_arrival": 3,
+                "car_count": 8,
+                "destination_code": "B01",
+                "extracted_at": now,
+                "station_name": "Test",
+            },
+            {
+                "station_code": None,
+                "line": "RD",
+                "minutes_to_arrival": 2,
+                "car_count": 8,
+                "destination_code": "B01",
+                "extracted_at": now,
+                "station_name": "Test",
+            },
         ]
         result = transform_predictions(raw)
         assert len(result) == 1
@@ -35,19 +55,33 @@ class TestTransformPredictions:
 
     def test_removes_rows_without_line(self):
         """Rows without line should be removed."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         raw = [
-            {"station_code": "A01", "line": "RD", "minutes_to_arrival": 5,
-             "car_count": 8, "destination_code": "B01", "extracted_at": now, "station_name": "Test"},
-            {"station_code": "A02", "line": "", "minutes_to_arrival": 3,
-             "car_count": 8, "destination_code": "B01", "extracted_at": now, "station_name": "Test"},
+            {
+                "station_code": "A01",
+                "line": "RD",
+                "minutes_to_arrival": 5,
+                "car_count": 8,
+                "destination_code": "B01",
+                "extracted_at": now,
+                "station_name": "Test",
+            },
+            {
+                "station_code": "A02",
+                "line": "",
+                "minutes_to_arrival": 3,
+                "car_count": 8,
+                "destination_code": "B01",
+                "extracted_at": now,
+                "station_name": "Test",
+            },
         ]
         result = transform_predictions(raw)
         assert len(result) == 1
 
     def test_coerces_numeric_fields(self):
         """Numeric fields should be coerced properly."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         raw = [
             {
                 "station_code": "A01",
@@ -70,20 +104,34 @@ class TestAggregateStationMetrics:
     def test_empty_dataframe_returns_empty_list(self):
         """Empty DataFrame should return empty list."""
         import pandas as pd
+
         result = aggregate_station_metrics(pd.DataFrame())
         assert result == []
 
     def test_aggregates_by_station_and_line(self):
         """Should aggregate by station_code and line."""
         import pandas as pd
-        df = pd.DataFrame([
-            {"station_code": "A01", "line": "RD", "station_name": "Metro Center", 
-             "minutes_to_arrival": 5, "extracted_at": datetime.now(timezone.utc)},
-            {"station_code": "A01", "line": "RD", "station_name": "Metro Center",
-             "minutes_to_arrival": 10, "extracted_at": datetime.now(timezone.utc)},
-        ])
+
+        df = pd.DataFrame(
+            [
+                {
+                    "station_code": "A01",
+                    "line": "RD",
+                    "station_name": "Metro Center",
+                    "minutes_to_arrival": 5,
+                    "extracted_at": datetime.now(UTC),
+                },
+                {
+                    "station_code": "A01",
+                    "line": "RD",
+                    "station_name": "Metro Center",
+                    "minutes_to_arrival": 10,
+                    "extracted_at": datetime.now(UTC),
+                },
+            ]
+        )
         result = aggregate_station_metrics(df)
-        
+
         assert len(result) == 1
         assert result[0]["station_code"] == "A01"
         assert result[0]["avg_wait_minutes"] == 7.5

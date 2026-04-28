@@ -1,16 +1,15 @@
 """Unit tests for quality checks module."""
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
 from src.core.quality_checks import (
+    check_completeness,
+    check_data_freshness,
     check_null_rate,
     check_schema,
-    check_wait_time_range,
-    check_valid_stations,
     check_valid_lines,
-    check_data_freshness,
-    check_completeness,
+    check_valid_stations,
+    check_wait_time_range,
     run_quality_checks,
 )
 
@@ -41,14 +40,16 @@ class TestCheckSchema:
 
     def test_all_fields_present_passes(self):
         """All required fields present should pass."""
-        data = [{
-            "station_code": "A01",
-            "line": "RD",
-            "avg_wait_minutes": 5,
-            "min_wait_minutes": 2,
-            "max_wait_minutes": 10,
-            "train_count": 3,
-        }]
+        data = [
+            {
+                "station_code": "A01",
+                "line": "RD",
+                "avg_wait_minutes": 5,
+                "min_wait_minutes": 2,
+                "max_wait_minutes": 10,
+                "train_count": 3,
+            }
+        ]
         result = check_schema(data)
         assert result.passed
 
@@ -112,14 +113,14 @@ class TestCheckDataFreshness:
 
     def test_fresh_data_passes(self):
         """Fresh data should pass."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         data = [{"extracted_at": now}]
         result = check_data_freshness(data)
         assert result.passed
 
     def test_stale_data_fails(self):
         """Stale data should fail."""
-        old_time = datetime.now(timezone.utc) - timedelta(hours=1)
+        old_time = datetime.now(UTC) - timedelta(hours=1)
         data = [{"extracted_at": old_time}]
         result = check_data_freshness(data, max_age_minutes=10)
         assert not result.passed
@@ -151,15 +152,17 @@ class TestRunQualityChecks:
 
     def test_returns_all_check_results(self):
         """Should return results for all checks."""
-        data = [{
-            "station_code": "A01",
-            "line": "RD",
-            "avg_wait_minutes": 5,
-            "min_wait_minutes": 2,
-            "max_wait_minutes": 10,
-            "train_count": 3,
-            "extracted_at": datetime.now(timezone.utc),
-        }]
+        data = [
+            {
+                "station_code": "A01",
+                "line": "RD",
+                "avg_wait_minutes": 5,
+                "min_wait_minutes": 2,
+                "max_wait_minutes": 10,
+                "train_count": 3,
+                "extracted_at": datetime.now(UTC),
+            }
+        ]
         result = run_quality_checks(data)
         assert "all_results" in result
         assert len(result["all_results"]) > 0
