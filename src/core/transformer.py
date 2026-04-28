@@ -134,7 +134,7 @@ def aggregate_station_metrics(df: pd.DataFrame) -> list[dict[str, Any]]:
 
     logger.info("station_metrics_aggregated", station_count=len(result))
 
-    return result
+    return list(result)
 
 
 def enrich_with_metadata(

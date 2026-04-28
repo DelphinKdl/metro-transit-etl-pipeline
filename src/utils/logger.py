@@ -6,6 +6,7 @@ Uses structlog for JSON-formatted, context-rich logging.
 
 import logging
 import sys
+from typing import Any
 
 import structlog
 
@@ -29,6 +30,7 @@ def configure_logging(
     )
 
     # Choose processors based on format
+    renderer: Any
     if json_format:
         renderer = structlog.processors.JSONRenderer()
     else:
@@ -70,7 +72,7 @@ def get_logger(name: str | None = None) -> structlog.BoundLogger:
     logger = structlog.get_logger()
     if name:
         logger = logger.bind(component=name)
-    return logger
+    return logger  # type: ignore[no-any-return]
 
 
 # Configure on import with defaults

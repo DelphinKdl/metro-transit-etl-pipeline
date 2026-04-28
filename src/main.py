@@ -17,7 +17,7 @@ from src.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-def run_pipeline():
+def run_pipeline() -> dict[str, object]:
     """
     Execute the full ETL pipeline.
 

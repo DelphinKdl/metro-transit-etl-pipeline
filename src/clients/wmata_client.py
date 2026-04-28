@@ -74,7 +74,7 @@ class WMATAClient:
         session.mount("https://", adapter)
         session.headers.update(
             {
-                "api_key": self.api_key,
+                "api_key": self.api_key or "",
                 "Accept": "application/json",
             }
         )

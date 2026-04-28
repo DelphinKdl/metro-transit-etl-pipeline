@@ -128,8 +128,8 @@ class DatabaseLoader:
 
     def insert_cleaned_predictions(
         self,
-        cleaned_df,
-        run_id: str = None,
+        cleaned_df: Any,
+        run_id: str | None = None,
     ) -> dict[str, Any]:
         """
         Persist cleaned predictions to Silver layer.
@@ -245,8 +245,8 @@ class DatabaseLoader:
         status: str = "success",
         records_cleaned: int = 0,
         records_loaded: int = 0,
-        error_message: str = None,
-        metadata: dict[str, Any] = None,
+        error_message: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """
         Update a pipeline run record on completion.

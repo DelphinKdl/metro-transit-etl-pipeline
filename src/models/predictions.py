@@ -54,9 +54,13 @@ class TrainPrediction:
         """Create from dictionary."""
         from datetime import datetime
 
-        extracted_at = data.get("extracted_at")
-        if isinstance(extracted_at, str):
-            extracted_at = datetime.fromisoformat(extracted_at)
+        raw_ts = data.get("extracted_at")
+        if isinstance(raw_ts, str):
+            extracted_at: datetime = datetime.fromisoformat(raw_ts)
+        elif isinstance(raw_ts, datetime):
+            extracted_at = raw_ts
+        else:
+            extracted_at = datetime.now(tz=datetime.now().astimezone().tzinfo)
 
         return cls(
             car_count=data.get("car_count"),
