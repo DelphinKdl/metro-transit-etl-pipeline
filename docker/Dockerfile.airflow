@@ -1,0 +1,14 @@
+# Custom Airflow image with project dependencies
+FROM apache/airflow:2.9.0-python3.11
+
+# Install project dependencies directly (Airflow 2.9 requires SQLAlchemy <2.0)
+RUN pip install --no-cache-dir \
+    requests>=2.31.0 \
+    pandas>=2.1.0 \
+    numpy>=1.26.0 \
+    "sqlalchemy>=1.4.36,<2.0" \
+    psycopg2-binary>=2.9.9 \
+    pydantic>=2.0.0 \
+    pydantic-settings>=2.0.0 \
+    structlog>=23.3.0 \
+    python-dotenv>=1.0.0

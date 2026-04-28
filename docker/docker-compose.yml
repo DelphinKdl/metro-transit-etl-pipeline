@@ -1,0 +1,172 @@
+name: wmata-etl
+
+x-airflow-common: &airflow-common
+  build:
+    context: ..
+    dockerfile: docker/Dockerfile.airflow
+  image: wmata-etl-airflow:latest
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${AIRFLOW_DB:-wmata_airflow}
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth'
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+    AIRFLOW__CORE__DEFAULT_TIMEZONE: 'US/Eastern'
+    # Webserver performance settings (reduce for local dev)
+    AIRFLOW__WEBSERVER__WORKERS: '2'
+    AIRFLOW__WEBSERVER__WEB_SERVER_MASTER_TIMEOUT: '300'
+    AIRFLOW__WEBSERVER__WEB_SERVER_WORKER_TIMEOUT: '300'
+    # WMATA ETL Pipeline env vars (loaded from .env)
+    
+    # Required - no defaults (will fail if not set)
+    WMATA_API_KEY: ${WMATA_API_KEY:?WMATA_API_KEY is required}
+    POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    # Optional - with sensible defaults
+    POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+    POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+    POSTGRES_DB: ${POSTGRES_DB}
+    DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}}
+  volumes:
+    - ../dags:/opt/airflow/dags
+    - ../src:/opt/airflow/src
+    - ../config:/opt/airflow/config
+    - ../logs:/opt/airflow/logs
+    - ../plugins:/opt/airflow/plugins
+  user: "${AIRFLOW_UID:-50000}:0"
+  depends_on: &airflow-common-depends-on
+    postgres:
+      condition: service_healthy
+
+services:
+  # PostgreSQL - Used by both Airflow and our ETL pipeline
+  postgres:
+    container_name: wmata-etl-postgres
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${AIRFLOW_DB:-wmata_airflow}
+    volumes:
+      - wmata-etl-postgres-data:/var/lib/postgresql/data
+      - ../scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init-db.sql
+      - ../scripts/schema.sql:/docker-entrypoint-initdb.d/02-schema.sql
+      - ../scripts/seed-stations.sql:/docker-entrypoint-initdb.d/03-seed-stations.sql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      retries: 5
+      start_period: 10s
+    restart: always
+    ports:
+      - "5432:5432"
+
+  # Airflow Webserver - UI at http://localhost:8080
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: wmata-etl-webserver
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 30s
+      retries: 10
+      start_period: 120s
+    restart: on-failure:3
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  # Airflow Scheduler - Runs the DAGs
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: wmata-etl-scheduler
+    command: scheduler
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  # Airflow Init - Sets up the database and creates admin user
+  airflow-init:
+    <<: *airflow-common
+    container_name: wmata-etl-init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        mkdir -p /sources/logs /sources/dags /sources/plugins
+        chown -R "${AIRFLOW_UID:-50000}:0" /sources/{logs,dags,plugins}
+        exec /entrypoint airflow version
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_DB_MIGRATE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+    user: "0:0"
+    volumes:
+      - ../:/sources
+
+  # Airflow CLI - For running ad-hoc commands
+  airflow-cli:
+    <<: *airflow-common
+    container_name: wmata-etl-cli
+    profiles:
+      - debug
+    environment:
+      <<: *airflow-common-env
+      CONNECTION_CHECK_MAX_COUNT: "0"
+    command:
+      - bash
+      - -c
+      - airflow
+
+  # pgAdmin - Database UI at http://localhost:5050
+  pgadmin:
+    container_name: wmata-etl-pgadmin
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Streamlit Dashboard - Data visualization at http://localhost:8501
+  dashboard:
+    container_name: wmata-etl-dashboard
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ../dashboard/app.py:/app/app.py
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure:3
+
+volumes:
+  wmata-etl-postgres-data:
