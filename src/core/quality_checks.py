@@ -353,6 +353,8 @@ def check_data_freshness(aggregates: list[dict[str, Any]], max_age_minutes: int 
         if extracted_at:
             if isinstance(extracted_at, str):
                 extracted_at = datetime.fromisoformat(extracted_at.replace("Z", "+00:00"))
+            if hasattr(extracted_at, "tzinfo") and extracted_at.tzinfo is None:
+                extracted_at = extracted_at.replace(tzinfo=UTC)
             if now - extracted_at > max_age:
                 stale_count += 1
 

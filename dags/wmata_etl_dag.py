@@ -70,10 +70,10 @@ def wmata_rail_predictions_etl():
         # Convert to dicts for XCom serialization
         raw_data = [p.to_dict() for p in predictions]
         
-        # Save sample to file for debugging
-        sample_path = "/opt/airflow/logs/last_extract_sample.json"
-        with open(sample_path, "w") as f:
-            json.dump(raw_data[:5], f, indent=2, default=str)
+        # Persist full extract to a file to avoid XCom size limits
+        data_path = f"/opt/airflow/logs/extract_{run_id}.json"
+        with open(data_path, "w") as f:
+            json.dump(raw_data, f, default=str)
         
         # Load raw data to Bronze layer
         loader = get_loader()
@@ -82,12 +82,13 @@ def wmata_rail_predictions_etl():
         # Record pipeline run start
         loader.record_pipeline_run(run_id, records_extracted=len(raw_data))
         
-        return {"raw_data": raw_data, "run_id": run_id}
+        return {"data_path": data_path, "run_id": run_id, "record_count": len(raw_data)}
     
     @task()
     def transform_data(extract_result: Dict[str, Any]) -> Dict[str, Any]:
         """Transform raw predictions and persist to Silver layer."""
-        raw_predictions = extract_result["raw_data"]
+        with open(extract_result["data_path"]) as f:
+            raw_predictions = json.load(f)
         run_id = extract_result["run_id"]
         
         cleaned = transform_predictions(raw_predictions)

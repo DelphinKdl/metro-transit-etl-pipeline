@@ -9,6 +9,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import timezone, timedelta
+from zoneinfo import ZoneInfo
 import streamlit.components.v1 as components
 from sqlalchemy import create_engine, text
 
@@ -402,7 +403,7 @@ if p_total > 0:
 else:
     lu = kpi.iloc[0]["last_update"]
     if lu:
-        eastern = timezone(timedelta(hours=-4))
+        eastern = ZoneInfo("America/New_York")
         lu_local = lu.astimezone(eastern) if lu.tzinfo else lu.replace(tzinfo=timezone.utc).astimezone(eastern)
         c4.metric("Last Update", lu_local.strftime("%H:%M:%S"))
     else:
@@ -517,6 +518,14 @@ trend_df = run_query(
 st.markdown("<p class='section-label'>Is it getting better or worse?</p>", unsafe_allow_html=True)
 
 if not trend_df.empty:
+    # Convert UTC hours to Eastern for correct rush-hour shading
+    eastern = ZoneInfo("America/New_York")
+    hours = pd.to_datetime(trend_df["hour"])
+    if hours.dt.tz is None:
+        hours = hours.dt.tz_localize("UTC")
+    trend_df["hour"] = hours.dt.tz_convert(eastern)
+    trend_df = trend_df.dropna(subset=["hour"])
+
     fig_trend = px.line(
         trend_df, x="hour", y="avg_wait",
         color="line", color_discrete_map=LINE_COLORS,
@@ -535,7 +544,7 @@ if not trend_df.empty:
         annotation_font=dict(size=9, color="#00B140", family="IBM Plex Mono"),
     )
 
-    # Peak hour shading — morning (7-9) and evening (16-19)
+    # Peak hour shading — morning (7-9) and evening (16-19) Eastern
     hours = trend_df["hour"]
     if not hours.empty:
         base_date = hours.min()
@@ -714,7 +723,7 @@ with st.expander("Pipeline Observability", expanded=False):
                 {"interval": interval},
             )
             if not runs_df.empty:
-                eastern = timezone(timedelta(hours=-4))
+                eastern = ZoneInfo("America/New_York")
                 for col in ["started_at", "completed_at"]:
                     runs_df[col] = pd.to_datetime(runs_df[col]).dt.tz_convert(eastern).dt.strftime("%H:%M:%S")
                 status_map = {"success": "✅", "failed": "❌", "running": "🔄"}

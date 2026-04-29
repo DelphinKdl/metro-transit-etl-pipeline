@@ -350,7 +350,7 @@ class DatabaseLoader:
         """Yield successive batches for bulk execution."""
         for i in range(0, len(params), size):
             chunk = params[i : i + size]
-            yield chunk if len(chunk) > 1 else chunk[0]
+            yield chunk
 
 
 # Module-level singleton
@@ -361,7 +361,9 @@ def get_loader(connection_string: str | None = None) -> DatabaseLoader:
     """
     Get or create a database loader instance.
 
-    Uses singleton pattern to reuse connections.
+    Uses singleton pattern to reuse connections. If a different
+    connection_string is provided after initial creation, the
+    singleton is replaced with a new instance.
 
     Args:
         connection_string: Optional connection string override.
@@ -371,8 +373,20 @@ def get_loader(connection_string: str | None = None) -> DatabaseLoader:
     """
     global _loader
 
+    conn_str = connection_string or os.getenv("DATABASE_URL")
+
+    if conn_str and _loader is not None:
+        current_url = str(_loader.engine.url)
+        if current_url != conn_str:
+            logger.warning(
+                "replacing_database_loader",
+                reason="connection_string changed",
+            )
+            _loader.engine.dispose()
+            _loader = DatabaseLoader(conn_str)
+            return _loader
+
     if _loader is None:
-        conn_str = connection_string or os.getenv("DATABASE_URL")
         if not conn_str:
             raise ValueError(
                 "DATABASE_URL environment variable required. "

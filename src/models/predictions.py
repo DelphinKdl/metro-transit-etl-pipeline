@@ -5,7 +5,7 @@ Defines the core data structures used throughout the pipeline.
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
 
 @dataclass
@@ -52,15 +52,13 @@ class TrainPrediction:
     @classmethod
     def from_dict(cls, data: dict) -> "TrainPrediction":
         """Create from dictionary."""
-        from datetime import datetime
-
         raw_ts = data.get("extracted_at")
         if isinstance(raw_ts, str):
             extracted_at: datetime = datetime.fromisoformat(raw_ts)
         elif isinstance(raw_ts, datetime):
             extracted_at = raw_ts
         else:
-            extracted_at = datetime.now(tz=datetime.now().astimezone().tzinfo)
+            extracted_at = datetime.now(UTC)
 
         return cls(
             car_count=data.get("car_count"),
