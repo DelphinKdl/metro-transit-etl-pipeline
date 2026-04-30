@@ -1,5 +1,12 @@
 # Metro Transit Analytics Platform
 
+[![CI](https://github.com/DelphinKdl/metro-transit-etl-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/DelphinKdl/metro-transit-etl-pipeline/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Airflow 2.x](https://img.shields.io/badge/airflow-2.x-017CEE.svg)](https://airflow.apache.org/)
+[![PostgreSQL 15](https://img.shields.io/badge/PostgreSQL-15-336791.svg)](https://www.postgresql.org/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg)](https://docs.docker.com/compose/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 **Real-Time ETL Pipeline + Operations Insights Dashboard**
 
 A production-grade analytics platform that ingests real-time train arrival predictions from the Washington Metropolitan Area Transit Authority (WMATA), transforms them into actionable wait-time metrics, and delivers operational insights through a live dashboard.
@@ -75,7 +82,7 @@ Design and implement an end-to-end analytics system that:
 
 | Priority | Recommendation | Expected Impact |
 |----------|---------------|-----------------|
-| High | Increase train frequency during peak hours (8–9 AM, 5–6 PM) | Reduce peak wait times by 20–30% |
+| High | Increase train frequency during peak hours (8-9 AM, 5-6 PM) | Reduce peak wait times by 20-30% |
 | High | Investigate operational inefficiencies on high-delay lines | Improve line performance parity |
 | Medium | Prioritize infrastructure improvements at congested stations | Reduce chronic delay patterns |
 | Medium | Optimize scheduling during off-peak periods | Reduce operational costs |
@@ -137,7 +144,7 @@ The pipeline includes **8 automated validation checks** that gate data before it
 | 5 | Valid stations | Known WMATA station codes (91) | ≤ 5 unknown |
 | 6 | Valid lines | Only RD, BL, OR, SV, GR, YL | Strict |
 | 7 | Data freshness | Records less than 10 minutes old | < 10% stale |
-| 8 | Completeness | Minimum stations reporting | Time-aware: 3 (night) – 40 (peak) |
+| 8 | Completeness | Minimum stations reporting | Time-aware: 3 (night) - 40 (peak) |
 
 **If any check fails → pipeline stops → bad data never reaches Gold.**
 
@@ -152,7 +159,7 @@ The pipeline includes **8 automated validation checks** that gate data before it
 | Column | Type | Description |
 |--------|------|-------------|
 | station_code | VARCHAR | WMATA station identifier |
-| station_name | VARCHAR | Human-readable name |
+| station_name | VARCHAR | Readable name |
 | line | VARCHAR | Metro line (RD, BL, OR, SV, GR, YL) |
 | avg_wait_minutes | FLOAT | Average wait time |
 | min_wait_minutes | FLOAT | Minimum wait observed |
@@ -291,6 +298,8 @@ Every push to `main` triggers three sequential jobs:
 | **lint** | ruff, black, mypy | Code style, formatting, type safety |
 | **test** | pytest + coverage | 57 unit tests, coverage report to Codecov |
 | **build** | hatchling | Package builds correctly |
+
+![CI Pipeline](docs/images/ci-pipeline.png)
 
 ---
 
