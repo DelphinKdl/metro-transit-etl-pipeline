@@ -94,7 +94,7 @@ Design and implement an end-to-end analytics system that:
 |------|------|-------|-------------|
 | 1 | `extract_predictions` | Bronze | Fetch real-time predictions from WMATA API with retry/backoff, store raw JSON in `bronze.raw_predictions` |
 | 2 | `transform_data` | Silver | Clean, filter invalid entries, standardize types, persist to `silver.cleaned_predictions`, aggregate by station + line |
-| 3 | `quality_check` | Gate | Run 8 automated validations — **pipeline stops if any check fails** |
+| 3 | `quality_check` | Gate | Run 8 automated validations - **pipeline stops if any check fails** |
 | 4 | `load_to_database` | Gold | Upsert aggregated wait-time metrics to `gold.station_wait_times` via `ON CONFLICT` (idempotent) |
 
 ![Airflow DAG](docs/images/airflow-dag.png)
@@ -200,7 +200,7 @@ The pipeline includes **8 automated validation checks** that gate data before it
 
 - **Docker & Docker Compose** (required)
 - **Python 3.11+** (for local development only)
-- **WMATA API Key** — [Get one free](https://developer.wmata.com/)
+- **WMATA API Key** - [Get one free](https://developer.wmata.com/)
 
 ### Setup
 
@@ -219,7 +219,7 @@ make trigger            # Trigger first pipeline run
 | Service | URL | Credentials |
 |---------|-----|-------------|
 | **Airflow UI** | http://localhost:8080 | `airflow` / `airflow` |
-| **Dashboard** | http://localhost:8501 | — |
+| **Dashboard** | http://localhost:8501 | - |
 | **pgAdmin** | http://localhost:5050 | `admin@admin.com` / `admin` |
 | **PostgreSQL** | `localhost:5432` | from `.env` |
 
@@ -296,14 +296,14 @@ Every push to `main` triggers three sequential jobs:
 
 ## What This Project Demonstrates
 
-- **End-to-end analytics thinking** — Data → Insights → Decisions
-- **Production data engineering** — Idempotent loads, quality gates, observability
-- **Strong SQL + data modeling** — Medallion architecture, dimensional design
-- **Real-time pipeline design** — 5-minute cadence, circuit breaker, retry logic
-- **Data quality as a first-class concern** — 8 automated checks, pipeline halts on failure
-- **Dashboard-driven storytelling** — Narrative headlines, contextual KPIs, drill-downs
-- **DevOps maturity** — Docker, CI/CD, structured logging, automated testing
-- **Business-focused problem solving** — KPIs, recommendations, measurable impact
+- **End-to-end analytics thinking** Data → Insights → Decisions
+- **Production data engineering**  Idempotent loads, quality gates, observability
+- **Strong SQL + data modeling** Medallion architecture, dimensional design
+- **Real-time pipeline design** 5-minute cadence, circuit breaker, retry logic
+- **Data quality as a first-class concern** 8 automated checks, pipeline halts on failure
+- **Dashboard-driven storytelling**  Narrative headlines, contextual KPIs, drill-downs
+- **DevOps maturity** Docker, CI/CD, structured logging, automated testing
+- **Business-focused problem solving** KPIs, recommendations, measurable impact
 
 ---
 

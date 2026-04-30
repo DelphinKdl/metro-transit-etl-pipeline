@@ -237,11 +237,18 @@ st.sidebar.markdown(
 
 time_range = st.sidebar.selectbox(
     "Time Range",
-    ["Last 1 Hour", "Last 6 Hours", "Last 24 Hours", "All Data"],
+    [
+        "Last 1 Hour", "Last 6 Hours", "Last 24 Hours",
+        "Last 7 Days", "Last 30 Days", "Last 3 Months",
+        "Last 6 Months", "Last 1 Year", "All Data",
+    ],
 )
 interval = {
     "Last 1 Hour": "1 hour", "Last 6 Hours": "6 hours",
-    "Last 24 Hours": "24 hours", "All Data": "9999 hours",
+    "Last 24 Hours": "24 hours", "Last 7 Days": "7 days",
+    "Last 30 Days": "30 days", "Last 3 Months": "90 days",
+    "Last 6 Months": "180 days", "Last 1 Year": "365 days",
+    "All Data": "9999 days",
 }[time_range]
 
 selected_lines = st.sidebar.multiselect(
@@ -578,9 +585,10 @@ heatmap_df = run_query(
     "EXTRACT(HOUR FROM calculated_at) AS hour, "
     "ROUND(AVG(avg_wait_minutes)::numeric, 1) AS avg_wait "
     "FROM gold.station_wait_times "
-    "WHERE line = ANY(:lines) "
+    "WHERE calculated_at > NOW() - CAST(:interval AS interval) "
+    "AND line = ANY(:lines) "
     "GROUP BY dow, hour ORDER BY dow, hour",
-    {"lines": line_list},
+    {"interval": interval, "lines": line_list},
 )
 
 if not heatmap_df.empty:
@@ -612,16 +620,16 @@ st.divider()
 # Station drill-down — "Zoom in"
 # ----------------------------------------------
 station_df = run_query(
-    "SELECT DISTINCT ON (station_code, line) "
-    "station_code, station_name, line, "
-    "avg_wait_minutes::float AS avg_wait_minutes, "
-    "min_wait_minutes::float AS min_wait_minutes, "
-    "max_wait_minutes::float AS max_wait_minutes, "
-    "train_count "
+    "SELECT station_code, station_name, line, "
+    "ROUND(AVG(avg_wait_minutes)::numeric, 1) AS avg_wait_minutes, "
+    "ROUND(MIN(min_wait_minutes)::numeric, 1) AS min_wait_minutes, "
+    "ROUND(MAX(max_wait_minutes)::numeric, 1) AS max_wait_minutes, "
+    "SUM(train_count) AS train_count "
     "FROM gold.station_wait_times "
     "WHERE calculated_at > NOW() - CAST(:interval AS interval) "
     "AND line = ANY(:lines) "
-    "ORDER BY station_code, line, calculated_at DESC",
+    "GROUP BY station_code, station_name, line "
+    "ORDER BY avg_wait_minutes DESC",
     {"interval": interval, "lines": line_list},
 )
 
@@ -636,6 +644,10 @@ if not station_df.empty:
 
     # Color helper
     def wait_color(val):
+        try:
+            val = float(val)
+        except (ValueError, TypeError):
+            return ""
         if val >= 8:
             return "background-color: #fce4ec; color: #BF0D3E"
         elif val >= 5:
@@ -656,7 +668,7 @@ if not station_df.empty:
             "color:#BF0D3E;margin-bottom:4px'>TOP 10 · LONGEST WAITS</p>",
             unsafe_allow_html=True,
         )
-        styled_worst = top_worst.style.map(wait_color, subset=["Avg Wait"])
+        styled_worst = top_worst.style.format({"Avg Wait": "{:.1f}", "Max Wait": "{:.1f}"}).map(wait_color, subset=["Avg Wait"])
         st.dataframe(styled_worst, use_container_width=True, hide_index=True, height=380)
 
     with best_col:
@@ -665,7 +677,7 @@ if not station_df.empty:
             "color:#00B140;margin-bottom:4px'>TOP 10 · SHORTEST WAITS</p>",
             unsafe_allow_html=True,
         )
-        styled_best = top_best.style.map(wait_color, subset=["Avg Wait"])
+        styled_best = top_best.style.format({"Avg Wait": "{:.1f}", "Min Wait": "{:.1f}"}).map(wait_color, subset=["Avg Wait"])
         st.dataframe(styled_best, use_container_width=True, hide_index=True, height=380)
 
 st.divider()
@@ -725,7 +737,9 @@ with st.expander("Pipeline Observability", expanded=False):
             if not runs_df.empty:
                 eastern = ZoneInfo("America/New_York")
                 for col in ["started_at", "completed_at"]:
-                    runs_df[col] = pd.to_datetime(runs_df[col]).dt.tz_convert(eastern).dt.strftime("%H:%M:%S")
+                    ts = pd.to_datetime(runs_df[col], errors="coerce")
+                    ts = ts.dt.tz_convert(eastern) if ts.dt.tz else ts.dt.tz_localize("UTC").dt.tz_convert(eastern)
+                    runs_df[col] = ts.dt.strftime("%H:%M:%S").fillna("-")
                 status_map = {"success": "✅", "failed": "❌", "running": "🔄"}
                 runs_df["status"] = runs_df["status"].map(lambda s: f'{status_map.get(s, "⚠️")} {s}')
                 st.dataframe(
