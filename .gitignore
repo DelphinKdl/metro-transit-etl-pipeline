@@ -67,3 +67,17 @@ plugins/
 
 # Docker
 .env
+
+# Docs - keep only data quality findings and data dictionary
+docs/00_CODE_MAP.md
+docs/01_PROJECT_OVERVIEW.md
+docs/02_EXTRACT_LAYER.md
+docs/03_TRANSFORM_LAYER.md
+docs/04_QUALITY_CHECKS.md
+docs/05_LOAD_LAYER.md
+docs/06_ORCHESTRATION.md
+docs/07_CONFIGURATION.md
+docs/08_DOCKER_SETUP.md
+docs/architecture.md
+docs/interview_script/
+docs/screenshots/
