@@ -6,34 +6,13 @@ A production-grade analytics platform that ingests real-time train arrival predi
 
 Built using a **Medallion Architecture** (Bronze → Silver → Gold) and orchestrated with **Apache Airflow**, this system enables transit operators to monitor performance, identify congestion patterns, and make data-driven decisions.
 
-[![CI](https://github.com/DelphinKdl/metro-transit-etl-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/DelphinKdl/metro-transit-etl-pipeline/actions/workflows/ci.yml)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Airflow 2.x](https://img.shields.io/badge/airflow-2.x-017CEE.svg)](https://airflow.apache.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+### Pipeline at a Glance
 
----
-
-## Table of Contents
-
-- [Business Problem](#-business-problem)
-- [Project Goal](#-project-goal)
-- [Key KPIs](#-key-kpis)
-- [Business Questions Answered](#-business-questions-answered)
-- [Key Insights](#-key-insights)
-- [Business Recommendations](#-business-recommendations)
-- [Architecture](#-end-to-end-architecture)
-- [Pipeline Flow](#-pipeline-flow)
-- [Dashboard](#-dashboard-features)
-- [Data Quality](#-data-quality--reliability)
-- [Data Model](#-data-model)
-- [Tech Stack](#-tech-stack)
-- [Quick Start](#-quick-start)
-- [Project Structure](#-project-structure)
-- [Testing & CI/CD](#-testing--cicd)
-- [Documentation](#-documentation)
-- [What This Demonstrates](#-what-this-project-demonstrates)
-- [License](#-license)
+| Layer | Records | Detail |
+|-------|---------|--------|
+| **Bronze** · Raw | 1,081,460 | API responses ingested |
+| **Silver** · Cleaned | 822,492 | 76.1% yield after quality filtering |
+| **Gold** · Aggregated | 296,350 | Analytics-ready station metrics |
 
 ---
 
@@ -106,51 +85,9 @@ Design and implement an end-to-end analytics system that:
 
 ## End-to-End Architecture
 
-```
-┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│                            Docker Compose (6 Services)                                    │
-│                                                                                          │
-│  ┌───────────────┐  ┌───────────────┐  ┌──────────────┐  ┌────────────┐  ┌───────────┐ │
-│  │   Airflow     │  │   Airflow     │  │ PostgreSQL   │  │ Streamlit  │  │  pgAdmin  │ │
-│  │  Scheduler    │  │  Webserver    │  │     15       │  │ Dashboard  │  │    4      │ │
-│  │  (cron)       │  │   :8080       │  │   :5432      │  │  :8501     │  │  :5050    │ │
-│  └───────┬───────┘  └──────────────┘  └──────┬───────┘  └─────┬──────┘  └───────────┘ │
-│          │                                     │                │                        │
-│          ▼                                     │                │                        │
-│  ┌────────────────────────────────────────────────────────────────────┐                 │
-│  │                      Python ETL Pipeline                           │                 │
-│  │                                                                    │                 │
-│  │  ┌──────────┐   ┌────────────┐   ┌───────────┐   ┌─────────────┐ │                 │
-│  │  │ Extract  │──▶│ Transform  │──▶│  QC Gate  │──▶│    Load     │ │                 │
-│  │  │ (API)    │   │ (pandas)   │   │ (8 checks)│   │  (upsert)  │ │                 │
-│  │  └──────────┘   └────────────┘   └───────────┘   └─────────────┘ │                 │
-│  └────────────────────────────────────────────────────────────────────┘                 │
-└──────────────────────────────────────────────────────────────────────────────────────────┘
-         ▲                                                          │
-         │                                                          ▼
-  ┌──────┴───────┐                                    ┌──────────────────────┐
-  │  WMATA API   │                                    │  GitHub Actions CI   │
-  │  Real-Time   │                                    │  lint → test → build │
-  │  Predictions │                                    └──────────────────────┘
-  └──────────────┘
-```
-
-### Technical Data Flow
-
-```
-WMATA API ──▶ Extract ──▶ Bronze (raw) ──▶ Transform ──▶ Silver (cleaned) ──▶ QC Gate ──▶ Gold (metrics)
-                │              │                │               │                │              │
-           requests +     PostgreSQL         pandas +       PostgreSQL       8 checks      PostgreSQL
-           retry/backoff  raw_predictions    filtering    cleaned_preds     pass/fail    station_wait_times
-                │                                                                              │
-                └──────────────────── Apache Airflow (every 5 min) ────────────────────────────┘
-                                              │                                                │
-                                    gold.pipeline_runs                              Streamlit Dashboard
-                                    (full observability)                           (live at :8501)
-```
+![Architecture](docs/images/architecture.png)
 
 ---
-
 ## Pipeline Flow
 
 | Step | Task | Layer | Description |
@@ -160,11 +97,15 @@ WMATA API ──▶ Extract ──▶ Bronze (raw) ──▶ Transform ──▶
 | 3 | `quality_check` | Gate | Run 8 automated validations — **pipeline stops if any check fails** |
 | 4 | `load_to_database` | Gold | Upsert aggregated wait-time metrics to `gold.station_wait_times` via `ON CONFLICT` (idempotent) |
 
+![Airflow DAG](docs/images/airflow-dag.png)
+
 **Lineage**: Every record carries a `run_id` from extraction through Gold, enabling full traceability.
 
 ---
 
 ## Dashboard Features
+
+![Dashboard Overview](docs/images/dashboard-overview.png)
 
 The Streamlit dashboard at **http://localhost:8501** provides:
 
@@ -178,6 +119,8 @@ The Streamlit dashboard at **http://localhost:8501** provides:
 | **Day × Hour heatmap** | Color matrix (7 days × 24 hours) | Weekly congestion patterns |
 | **Station drill-down** | Top 10 longest/shortest waits | Conditional coloring for outliers |
 | **Pipeline observability** | Layer health + run log | Bronze/Silver/Gold counts and status |
+
+![Pipeline Health](docs/images/pipeline-health.png)
 
 ---
 
@@ -203,22 +146,6 @@ The pipeline includes **8 automated validation checks** that gate data before it
 ## Data Model
 
 ### Medallion Architecture (Bronze → Silver → Gold)
-
-```
-┌─────────────────────┐    ┌──────────────────────┐    ┌─────────────────────────┐
-│       BRONZE        │    │        SILVER         │    │          GOLD           │
-│                     │    │                       │    │                         │
-│  raw_predictions    │───▶│  cleaned_predictions  │───▶│  station_wait_times     │
-│  (VARCHAR types,    │    │  (typed, filtered,    │    │  (aggregated, indexed,  │
-│   raw JSON,         │    │   validated, with     │    │   analytics-ready)      │
-│   no validation)    │    │   run_id lineage)     │    │                         │
-│                     │    │                       │    │  pipeline_runs          │
-│                     │    │                       │    │  (observability)        │
-│                     │    │                       │    │                         │
-│                     │    │                       │    │  dim_stations           │
-│                     │    │                       │    │  (91 stations, lat/lng) │
-└─────────────────────┘    └──────────────────────┘    └─────────────────────────┘
-```
 
 ### Fact Table: `gold.station_wait_times`
 
@@ -367,25 +294,6 @@ Every push to `main` triggers three sequential jobs:
 
 ---
 
-## Documentation
-
-| Doc | Topic |
-|-----|-------|
-| [`00_CODE_MAP.md`](docs/00_CODE_MAP.md) | Codebase overview & file map |
-| [`01_PROJECT_OVERVIEW.md`](docs/01_PROJECT_OVERVIEW.md) | Goals, design decisions, tech stack |
-| [`02_EXTRACT_LAYER.md`](docs/02_EXTRACT_LAYER.md) | WMATA API client, retry logic, data models |
-| [`03_TRANSFORM_LAYER.md`](docs/03_TRANSFORM_LAYER.md) | Cleaning, filtering, aggregation |
-| [`04_QUALITY_CHECKS.md`](docs/04_QUALITY_CHECKS.md) | All 8 quality checks explained |
-| [`05_LOAD_LAYER.md`](docs/05_LOAD_LAYER.md) | PostgreSQL upsert, connection pooling |
-| [`06_ORCHESTRATION.md`](docs/06_ORCHESTRATION.md) | Airflow DAG, scheduling, task dependencies |
-| [`07_CONFIGURATION.md`](docs/07_CONFIGURATION.md) | Environment variables, Pydantic settings |
-| [`08_DOCKER_SETUP.md`](docs/08_DOCKER_SETUP.md) | Docker Compose, services, volumes |
-| [`09_DATA_QUALITY_FINDINGS.md`](docs/09_DATA_QUALITY_FINDINGS.md) | Real-world API data issues & fixes |
-| [`10_DATA_DICTIONARY.md`](docs/10_DATA_DICTIONARY.md) | Column-level reference for all tables |
-| [`architecture.md`](docs/architecture.md) | End-to-end architecture diagram |
-
----
-
 ## What This Project Demonstrates
 
 - **End-to-end analytics thinking** — Data → Insights → Decisions
@@ -396,12 +304,6 @@ Every push to `main` triggers three sequential jobs:
 - **Dashboard-driven storytelling** — Narrative headlines, contextual KPIs, drill-downs
 - **DevOps maturity** — Docker, CI/CD, structured logging, automated testing
 - **Business-focused problem solving** — KPIs, recommendations, measurable impact
-
----
-
-## Interview-Ready Summary
-
-> "I built a real-time analytics platform that ingests 10,000+ daily transit predictions from the WMATA API, applies a medallion architecture with automated quality gates, and delivers operational insights through a live Streamlit dashboard — enabling transit operators to identify congestion patterns and optimize service performance."
 
 ---
 
